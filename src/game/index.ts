@@ -14,7 +14,7 @@ export const createGame = (parent: string) => {
     },
     physics: {
       default: 'arcade',
-      arcade: { gravity: { y: 0 }, debug: false }
+      arcade: { gravity: { x: 0, y: 0 }, debug: false }
     },
     scene: [MainScene]
   });

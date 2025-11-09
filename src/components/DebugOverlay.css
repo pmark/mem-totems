@@ -1,0 +1,21 @@
+.dbg-root{position:fixed;top:8px;right:8px;z-index:100000;pointer-events:none}
+.dbg-toggle{pointer-events:auto;background:#111;color:#fff;border:1px solid #444;border-radius:6px;padding:6px 10px;font-size:12px;opacity:.8}
+.dbg-toggle:hover{opacity:1}
+.dbg-panel{pointer-events:auto;position:fixed;bottom:8px;left:8px;right:8px;max-height:50vh;background:#0b0b0bdd;border:1px solid #333;border-radius:8px;backdrop-filter: blur(4px);display:flex;flex-direction:column}
+.dbg-toolbar{display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #333}
+.dbg-filters button{background:#222;color:#aaa;border:1px solid #333;border-radius:4px;padding:4px 6px;font-size:12px}
+.dbg-filters button.active{color:#fff;border-color:#666}
+.dbg-search{flex:1;min-width:120px;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:4px 6px}
+.dbg-list{list-style:none;margin:0;padding:0;overflow:auto}
+.dbg-empty{color:#777;padding:12px}
+.dbg-item{border-bottom:1px solid #1e1e1e}
+.dbg-item .dbg-head{display:flex;gap:8px;align-items:center;padding:6px 8px;cursor:pointer}
+.dbg-item.log .dbg-head{color:#ddd}
+.dbg-item.info .dbg-head{color:#a7c7ff}
+.dbg-item.warn .dbg-head{color:#ffd27a}
+.dbg-item.error .dbg-head{color:#ff9a9a}
+.dbg-time{font-family:monospace;font-size:11px;color:#888}
+.dbg-level{font-size:11px;border:1px solid currentColor;border-radius:3px;padding:0 4px}
+.dbg-msg{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbg-caret{font-size:12px;color:#888}
+.dbg-stack{margin:0;padding:8px 12px;background:#090909;color:#bbb;border-top:1px dashed #333;max-height:160px;overflow:auto;font-size:12px}
