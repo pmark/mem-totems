@@ -16,7 +16,7 @@ export class RoomSystem {
   private currentRoomIndex: number = 0;
   private rooms: RoomTemplate[] = [];
   private runConfig: RunConfiguration;
-  private exitPortal: Phaser.GameObjects.Arc | null = null;
+  private exitPortal: Phaser.GameObjects.Container | Phaser.GameObjects.Arc | null = null;
   private isRoomCleared: boolean = false;
 
   // Event callbacks
@@ -168,27 +168,65 @@ export class RoomSystem {
   private showExitPortal(): void {
     const room = this.getCurrentRoom();
     
-    this.exitPortal = this.scene.add.arc(
-      room.exitPortal.x,
-      room.exitPortal.y,
-      20,
-      0,
-      360,
-      false,
-      0x00ffff,
-      0.7
-    );
+    // Build a much more visible portal as a container with glow, rings, and orbs
+    const container = this.scene.add.container(room.exitPortal.x, room.exitPortal.y);
+    container.setDepth(11); // Above totems/enemies, below player (12)
 
-    // Pulsing animation
+    // Core bright circle
+    const core = this.scene.add.circle(0, 0, 16, 0x00ffff, 0.95);
+    // Glowing rings
+    const ring1 = this.scene.add.circle(0, 0, 26, 0x00ffff, 0.18);
+    const ring2 = this.scene.add.circle(0, 0, 36, 0x00ffff, 0.10);
+    // Orbiting orbs (add at offset so rotating container makes them orbit)
+    const orb1 = this.scene.add.circle(28, 0, 4, 0xffffff, 0.9);
+    const orb2 = this.scene.add.circle(-28, 0, 4, 0x00ffff, 0.9);
+    // Label for clarity
+    const label = this.scene.add.text(0, -42, 'PORTAL', {
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      color: '#00ffff'
+    }).setOrigin(0.5, 1);
+
+    container.add([ring2, ring1, core, orb1, orb2, label]);
+
+    // Shimmer on core
     this.scene.tweens.add({
-      targets: this.exitPortal,
-      alpha: { from: 0.7, to: 0.3 },
-      scale: { from: 1, to: 1.2 },
-      duration: 1000,
+      targets: core,
+      scale: { from: 1, to: 1.25 },
+      alpha: { from: 0.95, to: 0.75 },
+      duration: 900,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+    // Pulse rings
+    this.scene.tweens.add({
+      targets: [ring1, ring2],
+      alpha: { from: 0.22, to: 0.08 },
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+    // Rotate container to make orbs orbit
+    this.scene.tweens.add({
+      targets: container,
+      angle: 360,
+      duration: 4000,
+      repeat: -1,
+      ease: 'Linear'
+    });
+    // Bob label
+    this.scene.tweens.add({
+      targets: label,
+      y: '-=6',
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    this.exitPortal = container;
   }
 
   /**

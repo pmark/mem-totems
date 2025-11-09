@@ -8,6 +8,8 @@ import { Totem } from './entities/Totem';
 import { Companion } from './entities/Companion';
 import { Enemy } from './entities/Enemy';
 import type { ElementType } from './entities/Totem';
+import { GameHUDStore } from '../debug/GameHUDStore';
+import { TouchController } from '../input/TouchController';
 
 export class MainScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -22,13 +24,10 @@ export class MainScene extends Phaser.Scene {
   private roomSystem!: RoomSystem;
   private companion!: Companion;
   private playerSpeed: number = 2;
+  private autoAttackCooldown: number = 650; // ms, Archero-like cadence
+  private lastAutoAttackTime: number = 0;
   
-  // UI elements
-  private essenceText!: Phaser.GameObjects.Text;
-  private healthText!: Phaser.GameObjects.Text;
-  private roomText!: Phaser.GameObjects.Text;
-  private interactionPrompt!: Phaser.GameObjects.Text;
-  private statusText!: Phaser.GameObjects.Text;
+  // Removed Phaser UI elements (now provided by React HUD)
 
   constructor() {
     super('MainScene');
@@ -36,6 +35,8 @@ export class MainScene extends Phaser.Scene {
 
   create() {
     console.log('MainScene ready');
+
+    // Production: no temporary banners or diagnostics
 
     // Initialize systems
     this.tilemapSystem = new TilemapSystem(this, 32);
@@ -45,10 +46,10 @@ export class MainScene extends Phaser.Scene {
     this.roomSystem = new RoomSystem(this);
     
     // Set up system event handlers
-    this.totemSystem.onMatch = (element: ElementType) => this.handleTotemMatch(element);
-    this.totemSystem.onMismatch = () => this.handleTotemMismatch();
-    this.essenceSystem.onEssenceChanged = (essence) => this.updateEssenceUI(essence);
-    this.combatSystem.onPlayerDamaged = (health, maxHealth) => this.updateHealthUI(health, maxHealth);
+  this.totemSystem.onMatch = (element: ElementType) => this.handleTotemMatch(element);
+  this.totemSystem.onMismatch = () => this.handleTotemMismatch();
+  this.essenceSystem.onEssenceChanged = (essence) => GameHUDStore.setEssence(essence);
+  this.combatSystem.onPlayerDamaged = (health, maxHealth) => GameHUDStore.setHealth({ current: health, max: maxHealth });
     this.combatSystem.onPlayerDeath = () => this.handlePlayerDeath();
     this.combatSystem.onEnemyDeath = (enemy) => this.handleEnemyDeath(enemy);
     this.roomSystem.onRoomCleared = () => this.handleRoomCleared();
@@ -62,22 +63,7 @@ export class MainScene extends Phaser.Scene {
       this.attackKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
       this.regenerateKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
-      // Create UI elements
-      this.setupUI();
-
-      // Load first room (after UI is ready so UI updates are safe)
-      this.loadCurrentRoom();
-
-    // Set up keyboard controls
-    this.cursors = this.input.keyboard!.createCursorKeys();
-    this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.attackKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-  this.regenerateKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-
-    // Create UI elements
-    this.setupUI();
-
-    // Load first room (after UI is ready so UI updates are safe)
+    // Load first room (React HUD will reflect state via store)
     this.loadCurrentRoom();
   }
 
@@ -147,17 +133,27 @@ export class MainScene extends Phaser.Scene {
       }
     }
     
-    // Update room UI
-    if (this.roomText) {
-      this.roomText.setText(this.roomSystem.getRoomTypeDescription());
-    }
+    GameHUDStore.setRoom({
+      index: this.roomSystem.getCurrentRoomIndex(),
+      total: this.roomSystem.getTotalRooms?.() ?? this.roomSystem.getCurrentRoomIndex() + 1,
+      type: room.type,
+      description: this.roomSystem.getRoomTypeDescription()
+    });
     
     // Special handling for rest room
     if (this.roomSystem.isRestRoom()) {
-      if (this.statusText) this.statusText.setText('Rest Room - Move to portal when ready');
+      GameHUDStore.setStatus('Rest Room - Move to portal when ready');
       this.roomSystem.markRoomCleared(); // Auto-clear rest room
     } else {
-      if (this.statusText) this.updateRoomStatus();
+      // Provide initial guidance if this is the first room
+      if (roomIndex === 0) {
+        GameHUDStore.setStatus('🌟 Welcome, Spirit Tamer! Your goal: Match all totem pairs in each room to progress.');
+        this.time.delayedCall(3500, () => {
+          this.updateRoomStatus();
+        });
+      } else {
+        this.updateRoomStatus();
+      }
     }
 
     console.info('Room loaded', { index: roomIndex, type: room.type, totems: this.totemSystem.getRemainingCount(), enemies: this.combatSystem.getEnemyCount() });
@@ -168,14 +164,13 @@ export class MainScene extends Phaser.Scene {
    */
   private handleRoomTransitionCheck(): void {
     if (this.roomSystem.canTransition(this.player.x, this.player.y)) {
-      this.interactionPrompt.setText('SPACE to enter portal');
-      this.interactionPrompt.setVisible(true);
-      
-      if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+      GameHUDStore.setPrompt('SPACE to enter portal');
+      const interact = Phaser.Input.Keyboard.JustDown(this.spaceKey) || TouchController.consumeInteract();
+      if (interact) {
         this.roomSystem.transitionToNextRoom();
       }
     } else if (!this.totemSystem.findNearestTotem(this.player.x, this.player.y, 40)) {
-      this.interactionPrompt.setVisible(false);
+      GameHUDStore.setPrompt(null);
     }
   }
 
@@ -183,12 +178,21 @@ export class MainScene extends Phaser.Scene {
    * Handle room cleared event
    */
   private handleRoomCleared(): void {
-    this.statusText.setText('Room cleared! Portal opened.');
-    this.statusText.setColor('#00ffff');
+    GameHUDStore.setStatus('🎊 Room Cleared! You matched all totems and defeated all enemies!');
+    GameHUDStore.setPrompt('🌀 A cyan portal has appeared - Move close and press SPACE to continue');
+    
+    // Visual feedback - flash effect
+    const flash = this.add.rectangle(160, 160, 320, 320, 0x00ffff, 0.3);
+    flash.setDepth(100);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => flash.destroy()
+    });
     
     this.time.delayedCall(2000, () => {
-      this.statusText.setColor('#aaaaaa');
-      this.statusText.setText('Enter the portal to continue');
+      GameHUDStore.setStatus('The portal shimmers with energy, waiting for you to step through...');
     });
   }
 
@@ -196,7 +200,10 @@ export class MainScene extends Phaser.Scene {
    * Handle room transition
    */
   private handleRoomTransition(index: number): void {
-    console.log(`Transitioning to room ${index + 1}`);
+    const totalRooms = this.roomSystem.getTotalRooms();
+    console.log(`Transitioning to room ${index + 1} of ${totalRooms}`);
+    
+    GameHUDStore.setStatus(`🚪 Entering Room ${index + 1} of ${totalRooms}...`);
     
     // Clear all enemies
     this.combatSystem.clearEnemies();
@@ -211,7 +218,13 @@ export class MainScene extends Phaser.Scene {
       targets: flash,
       alpha: 0,
       duration: 300,
-      onComplete: () => flash.destroy()
+      onComplete: () => {
+        flash.destroy();
+        // Give player a moment to orient in new room
+        this.time.delayedCall(500, () => {
+          this.updateRoomStatus();
+        });
+      }
     });
   }
 
@@ -219,8 +232,9 @@ export class MainScene extends Phaser.Scene {
    * Handle run complete
    */
   private handleRunComplete(): void {
-    this.statusText.setText('Victory! You completed the run!');
-    this.statusText.setColor('#ffff00');
+    GameHUDStore.setVictory();
+    GameHUDStore.setStatus('🏆 Victory! You conquered all rooms and proved your worth as a Spirit Tamer!');
+    GameHUDStore.setPrompt('🎮 Press R to start a new run with fresh challenges');
     this.playerSpeed = 0;
   }
 
@@ -232,55 +246,18 @@ export class MainScene extends Phaser.Scene {
     const enemies = this.combatSystem.getEnemyCount();
     
     if (totems > 0) {
-      this.statusText.setText(`${totems} totems remaining - Press SPACE to activate`);
+      GameHUDStore.setStatus(`${totems} totems remaining - Press SPACE to activate`);
     } else if (enemies > 0) {
-      this.statusText.setText(`${enemies} enemies remaining - Press A to attack`);
+      GameHUDStore.setStatus(`${enemies} enemies remaining - Press A to attack`);
     } else {
-      this.statusText.setText('Press SPACE near totems to activate');
+      GameHUDStore.setStatus('Press SPACE near totems to activate');
     }
   }
 
   /**
    * Set up UI elements
    */
-  private setupUI(): void {
-    // Title
-    this.add.text(10, 10, 'Mem-Totems', {
-      font: '20px monospace',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setDepth(1000);
-
-    // Essence display
-    this.essenceText = this.add.text(10, 40, '', {
-      font: '14px monospace',
-      color: '#ffffff'
-    }).setDepth(1000);
-    this.updateEssenceUI(this.essenceSystem.getEssence());
-
-    // Health display
-    this.healthText = this.add.text(10, 60, '', {
-      font: '14px monospace',
-      color: '#ffffff'
-    }).setDepth(1000);
-    const health = this.combatSystem.getPlayerHealth();
-    this.updateHealthUI(health.current, health.max);
-
-    // Interaction prompt
-    this.interactionPrompt = this.add.text(160, 270, '', {
-      font: '16px monospace',
-      color: '#ffff00',
-      fontStyle: 'bold',
-      align: 'center'
-    }).setOrigin(0.5).setDepth(1000);
-
-    // Status messages
-    this.statusText = this.add.text(160, 500, 'Press SPACE near totems to activate', {
-      font: '14px monospace',
-      color: '#aaaaaa',
-      align: 'center'
-    }).setOrigin(0.5).setDepth(1000);
-  }
+  // Removed setupUI (React HUD handles display)
 
   /**
    * Handle combat updates
@@ -292,17 +269,22 @@ export class MainScene extends Phaser.Scene {
     // Update companion
     this.companion.update(this.player.x, this.player.y);
 
-    // Handle player attack input
+    // Auto-attack when idle: if no virtual or keyboard movement, trigger attack on cooldown
+    const moving = this.isPlayerMoving();
+    const now = this.time.now;
+    if (!moving && now - this.lastAutoAttackTime >= this.autoAttackCooldown) {
+      const didAttack = this.combatSystem.playerAttack(this.player.x, this.player.y);
+      if (didAttack) {
+        this.lastAutoAttackTime = now;
+        this.tweens.add({ targets: this.player, scale: { from: 1, to: 1.2 }, duration: 100, yoyo: true });
+      }
+    }
+
+    // Keep manual attack available on keyboard for desktop
     if (Phaser.Input.Keyboard.JustDown(this.attackKey)) {
       const didAttack = this.combatSystem.playerAttack(this.player.x, this.player.y);
       if (didAttack) {
-        // Attack visual feedback on player
-        this.tweens.add({
-          targets: this.player,
-          scale: { from: 1, to: 1.2 },
-          duration: 100,
-          yoyo: true
-        });
+        this.tweens.add({ targets: this.player, scale: { from: 1, to: 1.2 }, duration: 100, yoyo: true });
       }
     }
   }
@@ -310,26 +292,15 @@ export class MainScene extends Phaser.Scene {
   /**
    * Update health UI
    */
-  private updateHealthUI(health: number, maxHealth: number): void {
-    this.healthText.setText(`Health: ${health}/${maxHealth}`);
-    
-    // Change color based on health percentage
-    const healthPercent = health / maxHealth;
-    if (healthPercent > 0.5) {
-      this.healthText.setColor('#00ff00');
-    } else if (healthPercent > 0.25) {
-      this.healthText.setColor('#ffff00');
-    } else {
-      this.healthText.setColor('#ff0000');
-    }
-  }
+  // Health UI handled by React HUD
 
   /**
    * Handle player death
    */
   private handlePlayerDeath(): void {
-    this.statusText.setText('You died! Refresh to restart.');
-    this.statusText.setColor('#ff0000');
+  GameHUDStore.setDead();
+    GameHUDStore.setStatus('💀 Defeated! The spirits overwhelmed you, but your journey isn\'t over.');
+    GameHUDStore.setPrompt('🔄 Press R to rise again and try a new run');
     
     // Stop player movement
     this.playerSpeed = 0;
@@ -349,24 +320,39 @@ export class MainScene extends Phaser.Scene {
     // Drop essence based on enemy element
     this.essenceSystem.addEssence(enemy.element, 1);
     
-    this.statusText.setText(`Enemy defeated! +1 ${enemy.element} essence`);
-    this.statusText.setColor('#00ff00');
+    GameHUDStore.setStatus(`Enemy defeated! +1 ${enemy.element} essence`);
     
     this.time.delayedCall(1500, () => {
-      this.statusText.setColor('#aaaaaa');
       const enemyCount = this.combatSystem.getEnemyCount();
       if (enemyCount > 0) {
-        this.statusText.setText(`${enemyCount} enemies remaining - Press A to attack`);
+        GameHUDStore.setStatus(`${enemyCount} enemies remaining - Press A to attack`);
       } else {
-        this.statusText.setText('Press SPACE near totems to activate');
+        // All enemies defeated, check if room can be cleared
+        this.checkRoomClearConditions();
       }
     });
   }
-  private updateEssenceUI(essence: { fire: number; water: number; earth: number; air: number }): void {
-    this.essenceText.setText(
-      `Essence: 🔥${essence.fire} 💧${essence.water} 🌍${essence.earth} 💨${essence.air}`
-    );
+
+  /**
+   * Check if room clear conditions are met (all totems + all enemies cleared)
+   */
+  private checkRoomClearConditions(): void {
+    const totems = this.totemSystem.getRemainingCount();
+    const enemies = this.combatSystem.getEnemyCount();
+    
+    if (totems === 0 && enemies === 0) {
+      // Room is clear!
+      GameHUDStore.setStatus('🌟 Outstanding! All totems matched and all enemies defeated!');
+      GameHUDStore.setPrompt('✨ Portal opened! Press SPACE to advance');
+      this.roomSystem.markRoomCleared();
+    } else if (totems > 0) {
+      GameHUDStore.setStatus(`✨ Enemies cleared! Now match the ${totems} remaining ${totems === 1 ? 'totem' : 'totems'} to complete this room.`);
+    } else if (enemies > 0) {
+      GameHUDStore.setStatus(`🎯 Totems cleared! Finish off the ${enemies} remaining ${enemies === 1 ? 'enemy' : 'enemies'}.`);
+    }
   }
+
+  // Essence UI handled by React HUD
 
   /**
    * Handle totem match event
@@ -375,22 +361,39 @@ export class MainScene extends Phaser.Scene {
     this.essenceSystem.addEssence(element, 1);
     
     const remaining = this.totemSystem.getRemainingCount();
-    this.statusText.setText(`Match! +1 ${element} essence (${remaining} totems left)`);
-    this.statusText.setColor('#00ff00');
     
-    // Reset status text color after 2 seconds
-    this.time.delayedCall(2000, () => {
-      this.statusText.setColor('#aaaaaa');
-      this.statusText.setText('Press SPACE near totems to activate');
-    });
+    if (remaining === 0) {
+      // All totems matched - celebrate and clear room!
+      GameHUDStore.setStatus(`🎉 Perfect Match! All ${element} totems paired! You've cleared the room!`);
+      GameHUDStore.setPrompt('🌟 Room Complete! Move to the cyan portal to continue');
+      
+      // Mark room as cleared (spawns exit portal)
+      this.roomSystem.markRoomCleared();
+      
+      this.time.delayedCall(3000, () => {
+        GameHUDStore.setStatus('Excellent work! The portal awaits...');
+      });
+    } else {
+      // More totems remain
+      GameHUDStore.setStatus(`✨ Great match! +1 ${element} essence collected. ${remaining} totems remaining in this room.`);
+      
+      this.time.delayedCall(2500, () => {
+        const enemies = this.combatSystem.getEnemyCount();
+        if (enemies > 0) {
+          GameHUDStore.setStatus(`Clear ${enemies} enemies, then continue matching totems`);
+        } else {
+          GameHUDStore.setStatus(`Find and match the remaining ${remaining} totems`);
+        }
+      });
+    }
   }
 
   /**
    * Handle totem mismatch event
    */
   private handleTotemMismatch(): void {
-    this.statusText.setText('Mismatch! Enemy spawned!');
-    this.statusText.setColor('#ff0000');
+      GameHUDStore.setStatus('❌ Totem Mismatch! The totems rejected each other and summoned a hostile spirit!');
+      GameHUDStore.setPrompt('⚔️ Defeat the enemy to continue');
     
     // Spawn enemy near the player
     const spawnDistance = 80;
@@ -412,11 +415,17 @@ export class MainScene extends Phaser.Scene {
     
     this.combatSystem.addEnemy(enemy);
     
-    // Reset status text after 2 seconds
-    this.time.delayedCall(2000, () => {
-      this.statusText.setColor('#aaaaaa');
-      this.statusText.setText('Press A to attack enemies');
-    });
+      // Give detailed feedback about enemy spawn
+      this.time.delayedCall(2500, () => {
+        GameHUDStore.setStatus(`⚠️ A wild ${randomElement} spirit appeared! Press A to attack or dodge using arrow keys.`);
+      });
+    
+      this.time.delayedCall(5000, () => {
+        const enemies = this.combatSystem.getEnemyCount();
+        if (enemies > 0) {
+          GameHUDStore.setStatus(`${enemies} ${enemies === 1 ? 'enemy' : 'enemies'} remaining - Attack with A key`);
+        }
+      });
   }
 
   /**
@@ -427,15 +436,17 @@ export class MainScene extends Phaser.Scene {
     const nearestTotem = this.totemSystem.findNearestTotem(this.player.x, this.player.y, 40);
     
     if (nearestTotem) {
-      this.interactionPrompt.setText('SPACE to activate');
-      this.interactionPrompt.setVisible(true);
+      GameHUDStore.setPrompt('SPACE to activate');
       
       // Check for space key press
-      if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && !this.totemSystem.isProcessing()) {
+      const interact = Phaser.Input.Keyboard.JustDown(this.spaceKey) || TouchController.consumeInteract();
+      if (interact && !this.totemSystem.isProcessing()) {
         this.totemSystem.activateTotem(nearestTotem);
       }
     } else {
-      this.interactionPrompt.setVisible(false);
+      if (!this.roomSystem.canTransition(this.player.x, this.player.y)) {
+        GameHUDStore.setPrompt(null);
+      }
     }
   }
 
@@ -443,16 +454,24 @@ export class MainScene extends Phaser.Scene {
     let velocityX = 0;
     let velocityY = 0;
 
-    if (this.cursors.left.isDown) {
-      velocityX = -this.playerSpeed;
-    } else if (this.cursors.right.isDown) {
-      velocityX = this.playerSpeed;
-    }
+    // Virtual joystick (touch)
+    const tv = TouchController.get();
+    if (tv.active && tv.mag > 0.05) {
+      velocityX = tv.x * this.playerSpeed;
+      velocityY = tv.y * this.playerSpeed;
+    } else {
+      // Keyboard fallback
+      if (this.cursors.left.isDown) {
+        velocityX = -this.playerSpeed;
+      } else if (this.cursors.right.isDown) {
+        velocityX = this.playerSpeed;
+      }
 
-    if (this.cursors.up.isDown) {
-      velocityY = -this.playerSpeed;
-    } else if (this.cursors.down.isDown) {
-      velocityY = this.playerSpeed;
+      if (this.cursors.up.isDown) {
+        velocityY = -this.playerSpeed;
+      } else if (this.cursors.down.isDown) {
+        velocityY = this.playerSpeed;
+      }
     }
 
     // Calculate new position
@@ -479,6 +498,13 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
+  private isPlayerMoving(): boolean {
+    const tv = TouchController.get();
+    const touching = tv.active && tv.mag > 0.05;
+    const keyboard = this.cursors.left.isDown || this.cursors.right.isDown || this.cursors.up.isDown || this.cursors.down.isDown;
+    return touching || keyboard;
+  }
+
   /**
    * Handle run regeneration (R key) for quick restarts.
    */
@@ -499,10 +525,9 @@ export class MainScene extends Phaser.Scene {
       this.loadCurrentRoom();
 
       // Feedback
-      this.statusText.setColor('#ffff00');
-      this.statusText.setText('New run generated!');
+      GameHUDStore.resetRun();
+      GameHUDStore.setStatus('New run generated!');
       this.time.delayedCall(2000, () => {
-        this.statusText.setColor('#aaaaaa');
         this.updateRoomStatus();
       });
     }

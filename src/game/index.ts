@@ -10,7 +10,9 @@ export const createGame = (parent: string) => {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
       width: 960,
-      height: 540
+      height: 540,
+      parent: parent,
+      expandParent: false
     },
     physics: {
       default: 'arcade',

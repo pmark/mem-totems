@@ -1,0 +1,5 @@
+.touch-layer { position:fixed; inset:0; z-index:95000; pointer-events:none; }
+.touch-stick { position:fixed; width:112px; height:112px; top:0; left:0; opacity:0; transition:opacity .18s ease; pointer-events:none; }
+.touch-base { position:absolute; inset:0; background:radial-gradient(circle at 30% 30%, rgba(0,160,255,0.35), rgba(0,100,200,0.15) 55%, rgba(0,70,150,0.05)); border:2px solid rgba(140,200,255,0.45); border-radius:50%; backdrop-filter:blur(10px) saturate(160%); -webkit-backdrop-filter:blur(10px) saturate(160%); box-shadow:0 4px 18px -4px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06); }
+.touch-handle { position:fixed; width:40px; height:40px; top:0; left:0; border-radius:50%; background:linear-gradient(135deg,#4db7ff,#1c6dd8); box-shadow:0 4px 18px -4px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.2); pointer-events:none; mix-blend-mode:screen; }
+@media (prefers-reduced-motion: reduce){ .touch-stick, .touch-handle { transition:none; } }

@@ -13,10 +13,6 @@ export default function GameCanvas() {
   }, []);
 
   return (
-    <div
-      id="game-container"
-      ref={containerRef}
-      className="w-full h-full flex items-center justify-center"
-    />
+    <div id="game-container" ref={containerRef} style={{ position:'fixed', inset:0 }} />
   );
 }

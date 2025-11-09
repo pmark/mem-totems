@@ -1,0 +1,42 @@
+/* Refined HUD - minimal, elegant, layered glass aesthetic */
+.hud-root { position:fixed; inset:0; pointer-events:none; z-index:90000; display:flex; flex-direction:column; }
+
+/* Top bar */
+.hud-bar { pointer-events:none; display:flex; gap:24px; align-items:center; justify-content:space-between; padding:10px 32px; color:#fff; font:500 15px/1.4 -apple-system,system-ui,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; background:linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.05)); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.hud-title { font-weight:600; letter-spacing:0.5px; font-size:15px; }
+.hud-room { opacity:.85; font-weight:500; }
+.hud-essence { display:flex; gap:10px; opacity:.9; font-weight:500; }
+.hud-health { font-weight:600; }
+
+/* Instructions pill */
+.hud-instructions { pointer-events:none; display:flex; gap:10px; align-items:center; justify-content:center; padding:14px 26px; margin-top:10px; background:rgba(30,35,45,0.65); border:1px solid rgba(90,120,170,0.35); border-radius:18px; backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%); align-self:center; box-shadow:0 8px 32px -8px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05); }
+.hud-instructions-label { font-size:18px; font-weight:700; color:#4da6ff; animation:blinkFade 3.2s ease-in-out infinite; }
+.hud-instructions-text { font:500 15px/1.55 -apple-system,system-ui,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; font-weight:600; color:#eef; text-align:center; max-width:680px; letter-spacing:0.3px; }
+@keyframes blinkFade { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+
+/* Status stack */
+.hud-status { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:30px 24px 46px; }
+.hud-message { pointer-events:none; color:#d6d9e0; background:rgba(25,28,32,0.75); border:1px solid rgba(110,140,180,0.28); border-radius:14px; padding:12px 18px; margin-bottom:10px; font:500 15px/1.5 -apple-system,system-ui,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; letter-spacing:0.2px; backdrop-filter:blur(26px) saturate(160%); -webkit-backdrop-filter:blur(26px) saturate(160%); box-shadow:0 4px 24px -6px rgba(0,0,0,0.55); }
+.hud-banner { pointer-events:none; border-radius:16px; padding:16px 22px; margin-bottom:12px; font:600 16px/1.4 -apple-system,system-ui,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; letter-spacing:0.4px; position:relative; overflow:hidden; }
+.hud-banner.victory { color:#fff; background:linear-gradient(135deg,#2d2255,#49357c 55%,#6b4fa5); border:1px solid rgba(170,140,255,0.35); box-shadow:0 6px 26px -8px rgba(90,40,170,0.7); }
+.hud-banner.dead { color:#ffe2e2; background:linear-gradient(135deg,#4a1f1f,#6d2a2a 55%,#8c3333); border:1px solid rgba(255,110,110,0.3); box-shadow:0 6px 26px -8px rgba(120,30,30,0.65); }
+.hud-banner.victory:before, .hud-banner.dead:before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.25), transparent 60%); mix-blend-mode:overlay; }
+
+/* Responsive tweaks */
+@media (max-width: 640px) {
+	.hud-bar { gap:14px; padding:8px 18px; font-size:12px; }
+	.hud-instructions { padding:10px 16px; margin-top:6px; }
+	.hud-instructions-text { font-size:13px; max-width:92vw; }
+	.hud-message { font-size:13px; padding:10px 14px; }
+	.hud-banner { font-size:14px; padding:12px 16px; }
+}
+@media (max-width: 380px) {
+	.hud-bar { flex-wrap:wrap; justify-content:center; }
+	.hud-essence, .hud-health { width:100%; display:flex; justify-content:center; }
+}
+
+/* Motion reduce accessibility */
+@media (prefers-reduced-motion: reduce) {
+	.hud-instructions-label { animation:none; }
+	.hud-banner.victory:before, .hud-banner.dead:before { display:none; }
+}
