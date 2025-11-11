@@ -3,7 +3,13 @@ html, body, #root, .app-root { height:100%; width:100%; margin:0; padding:0; }
 .app-root { position:relative; overflow:hidden; background:#000; color:#fff; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
 
 /* Game container fills */
-#game-container { position:absolute; inset:0; }
+#game-container { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+#game-container canvas { margin:auto; display:block; }
+
+/* Ensure canvas scales to fill smaller landscape screens without vertical letterboxing */
+@media (orientation: landscape) and (max-height: 540px) {
+  #game-container canvas { width:100vw !important; height:100vh !important; }
+}
 
 .logo {
   height: 6em;

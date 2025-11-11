@@ -7,12 +7,14 @@ export const createGame = (parent: string) => {
     parent,
     backgroundColor: '#1e1e1e',
     scale: {
-      mode: Phaser.Scale.FIT,
+      // Fill the available viewport and keep the scene centered
+      // RESIZE ensures the canvas matches the parent size (no letterboxing on small landscape screens)
+      mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
       width: 960,
       height: 540,
       parent: parent,
-      expandParent: false
+      expandParent: true
     },
     physics: {
       default: 'arcade',

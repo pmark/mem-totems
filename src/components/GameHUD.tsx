@@ -11,12 +11,14 @@ export function GameHUD() {
   const getInstructions = () => {
     if (state.victory) return isMobile ? 'Tap R (keyboard) to start a new run' : 'Press R to start a new run';
     if (state.dead) return isMobile ? 'Tap R to restart' : 'Press R to restart';
-    if (state.prompt) return isMobile ? 'Tap Interact' : state.prompt; // Portal or totem interaction
+    if (state.prompt) return isMobile ? 'Tap ✨' : 'Press E or SPACE to interact'; // Portal interaction
     if (state.status.includes('enemies remaining')) return isMobile ? 'Stop moving to auto-attack enemies' : 'Press A to attack nearby enemies';
-    if (state.status.includes('totems remaining')) return isMobile ? 'Move & tap Interact near totems' : 'Move near totems and press SPACE to activate them';
-    if (state.status.includes('cleared')) return isMobile ? 'Move to portal & tap Interact' : 'Move to the cyan portal and press SPACE';
+    if (state.status.includes('totems remaining')) return 'Move close to totems to activate';
+    if (state.status.includes('cleared')) return isMobile ? 'Move to portal & tap ✨' : 'Move to the cyan portal and press E or SPACE';
     if (state.status.includes('Rest Room')) return isMobile ? 'Rest room: move to portal when ready' : 'Safe zone - move to portal when ready';
-    return isMobile ? 'Drag anywhere to move | Stop to auto-attack | Tap Interact for portal/totem' : 'Move with arrow keys | SPACE to activate totems | A to attack';
+    return isMobile
+      ? 'Drag to move • Stop to auto-attack • Tap ✨ for portal'
+      : 'WASD/Arrows move • Shift sprint • Space jump • Right-drag camera • A attack • E/Space Use';
   };
 
   return (

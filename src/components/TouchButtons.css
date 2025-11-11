@@ -1,0 +1,36 @@
+.touch-buttons{position:fixed; z-index:95010; pointer-events:auto; display:flex; gap:14px; align-items:flex-end; flex-direction:row-reverse;}
+/* Default placement: bottom-right with safe margin */
+.touch-buttons{ right: clamp(12px, 3vw, 24px); bottom: clamp(12px, 3vh, 24px); }
+
+.tb-btn{ position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; width:76px; height:76px; border-radius:50%; border:none; outline:none; color:#fff; background:radial-gradient(ellipse at 40% 35%, rgba(255,255,255,0.12), rgba(0,0,0,0.35)); box-shadow: 0 6px 22px -6px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.12); backdrop-filter: blur(10px) saturate(160%); -webkit-backdrop-filter: blur(10px) saturate(160%); cursor:pointer; user-select:none; -webkit-tap-highlight-color: transparent; }
+.tb-special{background:radial-gradient(circle at 38% 32%, rgba(255,150,0,0.35), rgba(120,40,0,0.45));}
+.tb-special:active{transform:scale(0.95)}
+.tb-jump{background:radial-gradient(circle at 38% 32%, rgba(0,200,255,0.35), rgba(0,80,180,0.45));}
+.tb-jump:active{transform:scale(0.95)}
+/* Cooldown overlay placeholder */
+.tb-special.cooldown{filter:grayscale(.6) brightness(.7); opacity:.65;}
+.tb-special.cooldown{cursor:not-allowed;}
+.tb-special.cooldown .tb-label{font-weight:600;}
+.tb-special.cooldown::after{content:''; position:absolute; inset:0; border-radius:50%; background:conic-gradient(rgba(255,200,0,0.25) var(--pct,0%), rgba(0,0,0,0.25) 0);}
+.tb-btn:active{ transform: scale(0.96); }
+.tb-btn .tb-emoji{ font-size:28px; line-height:1; }
+.tb-btn .tb-label{ font-size:10px; opacity:0.85; margin-top:6px; letter-spacing:0.02em; }
+
+.tb-use.active{ box-shadow: 0 0 0 2px rgba(0,200,255,0.5), 0 0 28px -6px rgba(0,160,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.18); background: linear-gradient(135deg, rgba(0,160,255,0.35), rgba(0,80,180,0.35)); }
+
+/* Landscape-first layout: keep on bottom-right, allow horizontal growth for future buttons */
+@media (orientation: landscape){
+  .touch-buttons{ gap:18px; }
+  .tb-btn{ width:78px; height:78px; }
+}
+
+/* Portrait fallback: nudge cluster upwards to avoid thumbs hiding HUD, shrink slightly */
+@media (orientation: portrait){
+  .touch-buttons{ bottom: clamp(18px, 6vh, 48px); right: clamp(12px, 3vw, 24px); }
+  .tb-btn{ width:70px; height:70px; }
+}
+
+@media (max-width: 420px){
+  .tb-btn{ width:64px; height:64px; }
+  .tb-btn .tb-emoji{ font-size:24px; }
+}

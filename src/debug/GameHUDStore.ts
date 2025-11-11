@@ -7,6 +7,8 @@ export interface HUDState {
   victory: boolean;
   dead: boolean;
   banner: string | null; // Large, temporary overlay banner (e.g., HUD ACTIVE)
+  /** Remaining ms of special ability cooldown (0 when ready) */
+  specialCooldownMs: number;
 }
 
 const defaultState: HUDState = {
@@ -18,6 +20,7 @@ const defaultState: HUDState = {
   victory: false,
   dead: false,
   banner: null,
+  specialCooldownMs: 0,
 };
 
 export type HUDSubscriber = (state: HUDState) => void;
@@ -71,6 +74,11 @@ class GameHUDStoreImpl {
   clearBanner() { this.state = { ...this.state, banner: null }; this.emit(); }
   resetRun() {
     this.state = { ...this.state, victory: false, dead: false, status: '', prompt: null, banner: null };
+    this.emit();
+  }
+  setSpecialCooldown(ms: number) {
+    if (this.state.specialCooldownMs === ms) return;
+    this.state = { ...this.state, specialCooldownMs: ms };
     this.emit();
   }
 }

@@ -16,6 +16,10 @@ export class CombatSystem {
   private maxPlayerHealth: number = 100;
   private playerDamage: number = 15;
   private playerAttackRange: number = 20;
+  // Range no longer used (smart bomb hits all)
+  private specialAttackDamage: number = 45; // boosted for smart bomb
+  private specialCooldown: number = 5000; // ms
+  private lastSpecialTime: number = 0;
   private playerAttackCooldown: number = 500; // ms
   private lastPlayerAttackTime: number = 0;
 
@@ -109,6 +113,36 @@ export class CombatSystem {
     return false;
   }
 
+  /** Smart bomb: damage ALL enemies regardless of range (with visual feedback) */
+  playerSpecial(playerX: number, playerY: number): boolean {
+    const now = this.scene.time.now;
+    if (now - this.lastSpecialTime < this.specialCooldown) return false;
+    let hit = false;
+    for (const enemy of this.enemies) {
+      if (enemy.isDead) continue;
+      enemy.takeDamage(this.specialAttackDamage);
+      hit = true;
+    }
+    if (hit) {
+      this.lastSpecialTime = now;
+      // Simple flash effect at player position
+      const flash = this.scene.add.rectangle(playerX, playerY, 200, 200, 0xff8800, 0.25).setDepth(9999);
+      this.scene.tweens.add({ targets: flash, alpha: 0, scale: { from: 1, to: 1.5 }, duration: 400, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
+    }
+    return hit;
+  }
+
+  /** Remaining cooldown ms for special */
+  getSpecialCooldownRemaining(now: number): number {
+    const elapsed = now - this.lastSpecialTime;
+    return Math.max(0, this.specialCooldown - elapsed);
+  }
+
+  /** Total cooldown duration for special in ms */
+  getSpecialCooldownTotal(): number {
+    return this.specialCooldown;
+  }
+
   /**
    * Handle companion attacking enemies
    */
@@ -174,6 +208,11 @@ export class CombatSystem {
     if (this.onEnemyDeath) {
       this.onEnemyDeath(enemy);
     }
+  }
+
+  /** Environmental damage (pits, hazards) */
+  playerTakeEnvironmentalDamage(amount: number = 10): void {
+    this.playerTakeDamage(amount);
   }
 
   /**

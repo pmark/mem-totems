@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { ROOM_THEMES, type RoomTheme } from '../data/RoomTemplates';
 
 export interface TileData {
   x: number;
@@ -11,6 +12,7 @@ export class TilemapSystem {
   private tileSize: number;
   private mapData: number[][];
   private tiles: Phaser.GameObjects.Rectangle[] = [];
+  private currentTheme: RoomTheme = ROOM_THEMES.neutral;
 
   constructor(scene: Phaser.Scene, tileSize: number = 32) {
     this.scene = scene;
@@ -22,9 +24,16 @@ export class TilemapSystem {
    * Initialize the tilemap with a 2D array
    * 0 = floor (walkable)
    * 1 = wall (not walkable)
+   * 2 = pit (deep hazard)
+   * 3 = low obstacle (jumpable)
    */
-  loadMap(mapData: number[][]): void {
+  loadMap(mapData: number[][], themeKey?: string): void {
     this.mapData = mapData;
+    if (themeKey && ROOM_THEMES[themeKey]) {
+      this.currentTheme = ROOM_THEMES[themeKey];
+    } else {
+      this.currentTheme = ROOM_THEMES.neutral;
+    }
     this.renderMap();
   }
 
@@ -33,7 +42,7 @@ export class TilemapSystem {
     this.tiles.forEach(tile => tile.destroy());
     this.tiles = [];
 
-    // Render each tile
+    // Render each tile with theme colors
     for (let y = 0; y < this.mapData.length; y++) {
       for (let x = 0; x < this.mapData[y].length; x++) {
         const tileType = this.mapData[y][x];
@@ -42,9 +51,13 @@ export class TilemapSystem {
 
         let color: number;
         if (tileType === 1) {
-          color = 0x444444; // Wall - dark gray
+          color = this.currentTheme.wallColor;
+        } else if (tileType === 2) {
+          color = this.currentTheme.pitColor;
+        } else if (tileType === 3) {
+          color = this.currentTheme.obstacleColor;
         } else {
-          color = 0x88aa88; // Floor - light green
+          color = this.currentTheme.floorColor;
         }
 
         const tile = this.scene.add.rectangle(
@@ -56,10 +69,12 @@ export class TilemapSystem {
         );
 
         // Floor tiles lower depth than entities; walls slightly above floor but below player
-        if (tileType === 0) {
+        if (tileType === 0 || tileType === 2) {
           tile.setDepth(5); // floor
-        } else {
+        } else if (tileType === 1) {
           tile.setDepth(6); // wall
+        } else {
+          tile.setDepth(6); // low obstacle slightly above floor
         }
 
         this.tiles.push(tile);
@@ -80,7 +95,7 @@ export class TilemapSystem {
       return false;
     }
 
-    return this.mapData[tileY][tileX] === 0;
+    return this.mapData[tileY][tileX] === 0; // only floor walkable
   }
 
   /**
@@ -98,5 +113,27 @@ export class TilemapSystem {
       height: this.mapData.length,
       width: this.mapData.length > 0 ? this.mapData[0].length : 0
     };
+  }
+
+  /** Get the tile type (0 floor, 1 wall, 2 pit, 3 low obstacle) at world coords */
+  getTileAtWorld(x: number, y: number): number | null {
+    const tileX = Math.floor(x / this.tileSize);
+    const tileY = Math.floor(y / this.tileSize);
+    if (tileY < 0 || tileY >= this.mapData.length || tileX < 0 || tileX >= (this.mapData[0]?.length ?? 0)) return null;
+    return this.mapData[tileY][tileX];
+  }
+
+  isPit(x: number, y: number): boolean {
+    const t = this.getTileAtWorld(x, y);
+    return t === 2;
+  }
+  isWall(x: number, y: number): boolean {
+    const t = this.getTileAtWorld(x, y);
+    return t === 1;
+  }
+  /** Jumpable low obstacle: can traverse only while jumping */
+  isJumpable(x: number, y: number): boolean {
+    const t = this.getTileAtWorld(x, y);
+    return t === 3;
   }
 }

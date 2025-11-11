@@ -24,7 +24,7 @@ export default function InteractButton() {
   return (
     <button
       className="interact-btn"
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); TouchController.requestInteract(); }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); TouchController.requestUse(); }}
     >
       Interact
     </button>
